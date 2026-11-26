@@ -1,4 +1,5 @@
 const DAY = 86_400_000;
+const dateFormats = new Map();
 
 export const dateValue = date => new Date(date + 'T12:00:00Z');
 export const iso = date => date.toISOString().slice(0, 10);
@@ -18,7 +19,9 @@ export function localDate(zone, now = new Date()) {
 }
 
 export function dateLabel(date, options = { weekday: 'long', day: 'numeric', month: 'long' }) {
-  return new Intl.DateTimeFormat('en-IN', { ...options, timeZone: 'UTC' }).format(dateValue(date));
+  const key = JSON.stringify(options);
+  if (!dateFormats.has(key)) dateFormats.set(key, new Intl.DateTimeFormat('en-IN', { ...options, timeZone: 'UTC' }));
+  return dateFormats.get(key).format(dateValue(date));
 }
 
 export function* dates(start, end) {

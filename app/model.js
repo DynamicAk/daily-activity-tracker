@@ -11,7 +11,7 @@ const displayFields = ({ title, type, goal }) => ({ title, type, goal });
 const error = message => { throw new Error(message); };
 
 function matches(task, date) {
-  if (date < task.date || (task.end && date > task.end)) return false;
+  if (task.archived || date < task.date || (task.end && date > task.end)) return false;
   if (task.repeat === 'once') return date === task.date;
   return task.repeat === 'daily' || task.weekdays.includes(weekday(date));
 }
@@ -32,7 +32,7 @@ export function scheduled(state, start, end = start, target = '') {
       done: state.checks[key] === true, created: state.tasks[from].created });
   };
   for (const task of active(state.tasks)) {
-    if (target && task.goal !== target) continue;
+    if (task.archived || (target && task.goal !== target)) continue;
     const until = task.repeat === 'once' ? task.date : task.end || end;
     const goal = state.goals[task.goal];
     const first = later(later(task.date, start), goal?.start || start);
@@ -52,7 +52,7 @@ export function scheduled(state, start, end = start, target = '') {
 export function overdue(state, today) {
   const rows = [];
   for (const task of active(state.tasks)) {
-    if (task.repeat !== 'once' || task.date >= today) continue;
+    if (task.archived || task.repeat !== 'once' || task.date >= today) continue;
     const key = occurrenceKey(task.id, task.date);
     if (!state.checks[key] && allowed(state, task.goal, task.date)) {
       rows.push({ ...task, from: task.id, origin: task.date, key, isRecurring: false, done: false });
@@ -89,22 +89,34 @@ export function setDone(state, row, checked) {
   state.checks[row.key] = checked ? true : null;
 }
 
-function retireFuture(state, task, date) {
-  if (date <= task.date) state.tasks[task.id] = null;
-  else task.end = offset(date, -1);
+function retireFuture(state, task, date, changedKey) {
   const previous = [];
   for (const [key, item] of Object.entries(state.exceptions)) {
     if (!item || item.from !== task.id || item.origin < date) continue;
+    if (!item.skip && item.date < date && key !== changedKey) continue;
     previous.push({ key, item, done: state.checks[key] === true });
     state.exceptions[key] = null;
     state.checks[key] = null;
   }
   for (const [key, done] of Object.entries(state.checks)) {
     if (!done || !key.startsWith(task.id + '_') || key.slice(-10) < date) continue;
+    if (state.exceptions[key]) continue;
     previous.push({ key, done });
     state.checks[key] = null;
   }
+  if (date <= task.date) {
+    if (active(state.exceptions).some(item => item.from === task.id && !item.skip)) task.archived = true;
+    else state.tasks[task.id] = null;
+  } else if (!task.end || task.end >= date) {
+    task.end = offset(date, -1);
+  }
   return previous;
+}
+
+function retireSeries(state, task, row) {
+  const series = task.series || task.id;
+  return active(state.tasks).filter(item => (item.series || item.id) === series)
+    .flatMap(item => retireFuture(state, item, row.origin, row.key));
 }
 
 export function editTask(state, row, fields, scope) {
@@ -127,11 +139,9 @@ export function editTask(state, row, fields, scope) {
   }
   if (fields.date < row.origin) error('For future edits, choose the original date or a later one.');
   verifyTask(state, fields, fields.repeat !== 'once');
-  const oldEnd = task.end;
   const wasDone = state.checks[row.key] === true;
-  const previous = retireFuture(state, task, row.origin);
-  const replacement = { ...fields, id: id(), created: task.created };
-  if (oldEnd && fields.date <= oldEnd) replacement.end = oldEnd;
+  const previous = retireSeries(state, task, row);
+  const replacement = { ...fields, id: id(), series: task.series || task.id, created: task.created };
   state.tasks[replacement.id] = replacement;
   for (const entry of previous) {
     const date = entry.key.slice(-10);
@@ -152,8 +162,10 @@ export function removeTask(state, row, scope) {
   if (row.isRecurring && scope === 'day') {
     state.exceptions[row.key] = { from: task.id, origin: row.origin, skip: true };
     state.checks[row.key] = null;
+  } else if (row.isRecurring) {
+    retireSeries(state, task, row);
   } else {
-    retireFuture(state, task, row.origin);
+    retireFuture(state, task, row.origin, row.key);
   }
 }
 

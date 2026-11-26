@@ -19,7 +19,6 @@ before(async () => {
     projectId: 'demo-daily-tracker',
     database: { rules: await readFile(new URL('../database.rules.json', import.meta.url), 'utf8') }
   });
-  await env.clearDatabase();
 });
 after(async () => { await env?.cleanup(); });
 

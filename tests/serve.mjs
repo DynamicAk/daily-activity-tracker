@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve, sep, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = fileURLToPath(new URL('../app/', import.meta.url));
+const root = fileURLToPath(new URL('../', import.meta.url));
 const prefix = '/daily-activity-tracker/';
 const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript' };
 const port = Number(process.env.TRACKER_PORT || 4220);
@@ -14,7 +14,8 @@ const server = createServer(async (req, res) => {
     return;
   }
   const file = resolve(root, decodeURIComponent(pathname.slice(prefix.length)) || 'index.html');
-  if (!file.startsWith(resolve(root) + sep) || !types[extname(file)]) {
+  const inApp = file.startsWith(resolve(root, 'app') + sep);
+  if ((!inApp && file !== resolve(root, 'index.html')) || !types[extname(file)]) {
     res.writeHead(404).end();
     return;
   }

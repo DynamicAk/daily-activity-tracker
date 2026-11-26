@@ -47,9 +47,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      - name: Stage the tracker
+        run: |
+          mkdir -p pages/app
+          cp index.html pages/
+          cp app/*.js app/style.css pages/app/
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: app
+          path: pages
       - name: Deploy the tested site
         id: deployment
         uses: actions/deploy-pages@v4
@@ -68,5 +73,12 @@ jobs:
         env:
           TRACKER_TEST_URL: ${{ needs.deploy.outputs.url }}
         run: |
-          curl --fail --location --retry 7 --retry-all-errors "$TRACKER_TEST_URL"
-          npm run test:browser
+          for attempt in {1..12}; do
+            if curl -fsSL "$TRACKER_TEST_URL" -o live-index.html && grep -q 'src="app/app.js"' live-index.html; then
+              npm run test:browser
+              exit $?
+            fi
+            sleep 5
+          done
+          echo "GitHub Pages did not return the tracker entry page at $TRACKER_TEST_URL."
+          exit 1

@@ -16,7 +16,8 @@ I use plain HTML, CSS, and JavaScript. IndexedDB stores tracker data in the brow
 
 | Path | What I keep here |
 | --- | --- |
-| `app/` | Static pages, responsive styles, routing, task scheduling, analytics, and storage |
+| `index.html` | Entry page for the tracker |
+| `app/` | Responsive styles, routing, task scheduling, analytics, and storage |
 | `app/firebase-config.js` | Public Firebase web configuration and the cloud switch |
 | `database.rules.json` | Standalone proposed tracker rules for the emulator |
 | `firebase.json` | Local Realtime Database emulator configuration |
@@ -70,4 +71,4 @@ I keep the device copy even when cloud saving is available. Anonymous access is 
 
 ## Publish through GitHub Pages
 
-I use **Settings → Pages → Build and deployment → Source → GitHub Actions**. I open a feature-branch pull request into `main` and check the workflow results before merging. A passing push to `main` publishes the `app/` folder and runs browser tests against the deployment URL. I can also run the workflow from the Actions tab. The app uses relative asset paths and hash links such as `#today/2026-11-26` and `#analytics/2025`, so refreshing a view works under the repository path.
+I use **Settings → Pages → Build and deployment → Source → GitHub Actions**. I open a feature-branch pull request into `main` and check the workflow results before merging. A passing push to `main` publishes `index.html` and the `app/` assets, then runs browser tests against the deployment URL. I can also run the workflow from the Actions tab. The repository root has the same entry page if Pages is set to publish from the root of `main`. The app uses relative asset paths and hash links such as `#today/2026-11-26` and `#analytics/2025`, so refreshing a view works under the repository path.
